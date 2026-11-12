@@ -4,10 +4,13 @@ Uzupełnij implementację DES w pliku [des.py](des.py). Wszystkie tablice
 permutacji, rozszerzenia, wyboru bitów, przesunięcia oraz S-boxy są już
 wpisane w pliku [des_tables.py](des_tables.py). Nie zmieniaj tych tablic.
 
-Uzupełnij cztery funkcje oznaczone `TODO`:
+Uzupełnij pięć funkcji:
 
 ```python
 def permute(value: int, table: tuple[int, ...], input_bits: int) -> int:
+    ...
+
+def rotate_left_28(value: int, shift: int) -> int:
     ...
 
 def generate_subkeys(key: bytes) -> tuple[int, ...]:
@@ -47,20 +50,18 @@ bity mają stałe, znane wartości. Funkcja dodaje też bity parzystości.
 Różne indeksy oznaczają różne efektywne klucze. Do tworzenia kandydatów
 używaj tej funkcji w obu atakach.
 
-W pliku [dane/02.json](dane/02.json) znajdują się:
+W pliku [dane_02.py](dane_02.py) znajdują się:
 
-- liczba `bits`, czyli `b = 9`: po 512 możliwych kluczy dla `K1` i `K2`,
-- dwie znane pary tekst jawny–szyfrogram, zaszyfrowane tą samą parą kluczy,
-- dodatkowa zaszyfrowana wiadomość ASCII.
+- `BITS = 9`: po 512 możliwych kluczy dla `K1` i `K2`,
+- `PAIRS`: dwie znane pary tekst jawny–szyfrogram jako lista par obiektów
+  `bytes`, zaszyfrowane tą samą parą kluczy,
+- `MESSAGE`: dodatkowa zaszyfrowana wiadomość ASCII jako `bytes`.
 
-Wczytaj dane gotową funkcją:
+Zaimportuj dane i funkcje pomocnicze:
 
 ```python
-from des2 import load_challenge, key_from_index, check_keys, decrypt_message
-
-challenge = load_challenge()
-bits = challenge["bits"]
-pairs = challenge["pairs"]  # lista par (plaintext: bytes, ciphertext: bytes)
+from dane_02 import BITS, PAIRS, MESSAGE
+from des2 import key_from_index, check_keys, decrypt_message
 ```
 
 **Część A: brute force**
@@ -75,16 +76,6 @@ w następującej kolejności:
 (511, 0), ..., (511, 511).
 ```
 
-Dla każdej pary sprawdź, czy dwukrotne szyfrowanie pierwszego znanego
-bloku daje jego szyfrogram. Jeżeli tak, potwierdź kandydaturę na drugiej
-parze. Przy niezgodności kontynuuj poszukiwania. Zatrzymaj się po
-potwierdzeniu poprawnej pary kluczy. Nie odczytuj kluczy z rozwiązań
-ani z programu generującego dane.
-
-*Wskazówka*: dla ustalonego `K1` wartość `E_K1(P1)` jest wspólna dla
-całej wewnętrznej pętli. Oblicz ją raz. W tej części nie buduj tablicy
-wartości `D_K2(C1)` — będzie ona elementem następnego ataku.
-
 **Część B: meet-in-the-middle**
 
 Napisz funkcję `meet_in_the_middle(bits, pairs)`. Wykorzystaj zależność:
@@ -93,29 +84,16 @@ Napisz funkcję `meet_in_the_middle(bits, pairs)`. Wykorzystaj zależność:
 E_K1(P1) = D_K2(C1)
 ```
 
-1. Dla wszystkich indeksów `K1` oblicz `E_K1(P1)` i zapisz wyniki
-   w słowniku razem z indeksami kluczy.
-2. Dla kolejnych indeksów `K2` oblicz `D_K2(C1)` i wyszukaj tę wartość
-   w słowniku.
-3. Każdą otrzymaną parę kandydatów sprawdź na drugiej znanej parze
-   tekst jawny–szyfrogram. Przy niezgodności kontynuuj poszukiwania.
-
-W słowniku przechowuj listę indeksów dla każdej wartości pośredniej.
-Jeżeli dwa klucze dadzą ten sam wynik, zachowaj oba.
-
-Obie funkcje powinny zwracać znalezione indeksy oraz statystyki potrzebne
-do porównania. Obsłuż również przypadek, w którym nie znaleziono kluczy.
-
 **Sprawdzenie i porównanie**
 
 Po każdym ataku zamień znalezione indeksy na klucze i sprawdź:
 
 ```python
-key1 = key_from_index(index1, bits)
-key2 = key_from_index(index2, bits)
-assert check_keys(key1, key2, pairs)
+key1 = key_from_index(index1, BITS)
+key2 = key_from_index(index2, BITS)
+assert check_keys(key1, key2, PAIRS)
 
-message = decrypt_message(key1, key2, challenge["message"])
+message = decrypt_message(key1, key2, MESSAGE)
 print(message.rstrip(b" ").decode("ascii"))
 ```
 
@@ -126,24 +104,11 @@ szyfrowaniem dodano na końcu spacje do wielokrotności 8 bajtów.
 
 Dla obu metod wypisz:
 
-- znalezione indeksy i klucze zapisane szesnastkowo,
+- znalezione indeksy i klucze,
 - czas ataku zmierzony przez `time.perf_counter()`,
 - liczbę operacji szyfrowania i deszyfrowania pojedynczego bloku DES,
 - liczbę sprawdzonych par kluczy,
 - liczbę indeksów zapisanych w tablicy wartości pośrednich.
-
-W pomiarze uwzględnij generowanie kluczy i podkluczy, budowanie tablicy
-MITM oraz sprawdzanie kandydatów na drugiej parze. Nie wliczaj wczytania
-pliku, wypisywania wyników ani odszyfrowania dodatkowej wiadomości.
-Sprawdzone pary w MITM oznaczają dopasowania wartości pośrednich;
-w brute force są to kolejne pary odwiedzane w zagnieżdżonych pętlach.
-
-Porównaj wyniki z oszacowaniem dla `N = 2^b`: brute force przegląda
-do `N^2` par kluczy i może działać ze stałą pamięcią pomocniczą,
-a podstawowe fazy MITM wykonują do `2N` operacji DES i przechowują
-`N` indeksów wraz z wartościami pośrednimi. Dochodzi koszt potwierdzania
-kandydatów. Oba ataki mogą zakończyć się przed przeglądnięciem całej
-przestrzeni.
 
 ## Zadanie 3
 
